@@ -9,6 +9,7 @@ type Block struct {
 	Hash     []byte //Hash do bloco
 	Data     []byte //O dado que deseja ser armazenado
 	PrevHash []byte //Hash do ultimo bloco
+	nonce    int
 }
 
 func Genesis() *Block {
@@ -22,8 +23,13 @@ func (b *Block) DeriveHash() {
 }
 
 func CreateBlock(data string, prevHash []byte) *Block {
-	block := &Block{[]byte{}, []byte(data), prevHash}
-	block.DeriveHash()
+	block := &Block{[]byte{}, []byte(data), prevHash, 0}
+	proofOfWork := NewProof(block)
+
+	nonce, hash := proofOfWork.Run()
+
+	block.nonce = nonce
+	block.Hash = hash[:]
 
 	return block
 }
