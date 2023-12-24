@@ -15,8 +15,8 @@ type CommandLine struct{}
 
 func (cli *CommandLine) printUsage() {
 	fmt.Println("Usage: ")
-	fmt.Println("getBalance -address ADDRESS - get balance for address")
-	fmt.Println("createBlokchain -address ADDRESS - creates a blockchain")
+	fmt.Println("getbalance -address ADDRESS - get balance for address")
+	fmt.Println("createblokchain -address ADDRESS - creates a blockchain")
 	fmt.Println("printchain - Prints the blocks in the chain")
 	fmt.Println("send -from FROM -to TO -amount AMOUNT -  Send amount from to")
 }
@@ -106,6 +106,11 @@ func (cli *CommandLine) run() {
 
 	case "printchain":
 		err := printChainCmd.Parse(os.Args[2:])
+		if err != nil {
+			log.Panic(err)
+		}
+	case "send":
+		err := sendCmd.Parse(os.Args[2:])
 		if err != nil {
 			log.Panic(err)
 		}

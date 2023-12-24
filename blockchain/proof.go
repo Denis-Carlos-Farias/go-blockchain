@@ -59,9 +59,9 @@ func (pow *ProofOfWork) Run() (int, []byte) {
 
 		if intHash.Cmp(pow.Target) == -1 {
 			break
-		} else {
-			nonce++
 		}
+		nonce++
+
 	}
 	fmt.Println()
 
