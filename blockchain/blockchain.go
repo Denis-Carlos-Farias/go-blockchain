@@ -20,145 +20,141 @@ type Blockchain struct {
 	Database *badger.DB
 }
 
-type BlockchainInterator struct {
+type BlockchainIterator struct {
 	CurrentHash []byte
 	Database    *badger.DB
 }
 
-func DbExists() bool {
+func DBexists() bool {
 	if _, err := os.Stat(dbFile); os.IsNotExist(err) {
 		return false
 	}
+
 	return true
 }
 
 func ContinueBlockchain(address string) *Blockchain {
-	if !DbExists() {
-		fmt.Println("no existing Blockchain found, please create one.")
+	if !DBexists() {
+		fmt.Println("No existing Blockchain found, please create one!")
 		runtime.Goexit()
 	}
-
 	var lastHash []byte
-
 	opts := badger.DefaultOptions(dbPath)
-	//Dir Chaves e valores
 	opts.Dir = dbPath
-	//ValueDir Valores
 	opts.ValueDir = dbPath
 
 	db, err := badger.Open(opts)
-	Handler(err)
+	Handle(err)
 
 	err = db.Update(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte("lh"))
-		Handler(err)
-		errValue := item.Value(func(val []byte) error {
+		Handle(err)
+		err1 := item.Value(func(val []byte) error {
 			lastHash = append([]byte{}, val...)
 			return nil
 		})
-		Handler(errValue)
+
+		Handle(err1)
 		return err
 	})
-	Handler(err)
+	Handle(err)
 	chain := Blockchain{lastHash, db}
-
 	return &chain
+
 }
 
 func InitBlockchain(address string) *Blockchain {
 	var lastHash []byte
 
-	if DbExists() {
-		fmt.Println("Blockchain already exist")
+	if DBexists() {
+		fmt.Println("Blockchain already exists")
 		runtime.Goexit()
 	}
 	opts := badger.DefaultOptions(dbPath)
-	//Dir Chaves e valores
 	opts.Dir = dbPath
-	//ValueDir Valores
 	opts.ValueDir = dbPath
 
 	db, err := badger.Open(opts)
 
-	Handler(err)
+	Handle(err)
 
 	err = db.Update(func(txn *badger.Txn) error {
-		//lh Last Hash
 		cbtx := CoinBaseTx(address, genesisData)
 		genesis := Genesis(cbtx)
-		fmt.Println("Genesis has been created.")
+		fmt.Println("Genesis created")
 		err = txn.Set(genesis.Hash, genesis.Serialize())
-		Handler(err)
+		Handle(err)
 		err = txn.Set([]byte("lh"), genesis.Hash)
 		lastHash = genesis.Hash
 		return err
-	})
-	Handler(err)
 
+	})
+	Handle(err)
 	blockchain := Blockchain{lastHash, db}
 	return &blockchain
+
 }
 
 func (chain *Blockchain) AddBlock(transactions []*Transaction) {
 	var lastHash []byte
 	err := chain.Database.View(func(txn *badger.Txn) error {
 		item, err := txn.Get([]byte("lh"))
-		Handler(err)
-		errValue := item.Value(func(val []byte) error {
+		Handle(err)
+		err1 := item.Value(func(val []byte) error {
 			lastHash = append([]byte{}, val...)
 			return nil
 		})
-		Handler(errValue)
+
+		Handle(err1)
+
 		return err
 	})
-	Handler(err)
 
+	Handle(err)
 	newBlock := CreateBlock(transactions, lastHash)
 
 	err = chain.Database.Update(func(txn *badger.Txn) error {
 		err := txn.Set(newBlock.Hash, newBlock.Serialize())
-		Handler(err)
+		Handle(err)
 		err = txn.Set([]byte("lh"), newBlock.Hash)
 
 		chain.LastHash = newBlock.Hash
 		return err
 	})
 
-	Handler(err)
+	Handle(err)
 }
 
-func (chain *Blockchain) Interator() *BlockchainInterator {
-	interator := &BlockchainInterator{chain.LastHash, chain.Database}
+func (chain *Blockchain) Iterator() *BlockchainIterator {
+	iter := &BlockchainIterator{chain.LastHash, chain.Database}
 
-	return interator
+	return iter
 }
 
-func (interator *BlockchainInterator) Next() *Block {
+func (iter *BlockchainIterator) Next() *Block {
 	var block *Block
 	var blockData []byte
-	err := interator.Database.View(func(txn *badger.Txn) error {
-		item, err := txn.Get(interator.CurrentHash)
-		Handler(err)
-		errValue := item.Value(func(val []byte) error {
+	err := iter.Database.View(func(txn *badger.Txn) error {
+		item, err := txn.Get(iter.CurrentHash)
+		Handle(err)
+		err1 := item.Value(func(val []byte) error {
 			blockData = append([]byte{}, val...)
 			return nil
 		})
-		Handler(errValue)
-
+		Handle(err1)
 		block = Deserialize(blockData)
-
 		return err
 	})
-	Handler(err)
-	interator.CurrentHash = block.PrevHash
+	Handle(err)
+	iter.CurrentHash = block.PrevHash
 	return block
 }
 
-func (chain *Blockchain) FindUnspentTransctions(address string) []Transaction {
+func (chain *Blockchain) FindUnspentTransactions(address string) []Transaction {
 	var unspentTxs []Transaction
 	spentTxOs := make(map[string][]int)
 
-	iter := chain.Interator()
+	iter := chain.Iterator()
 
 	for {
 		block := iter.Next()
@@ -175,9 +171,10 @@ func (chain *Blockchain) FindUnspentTransctions(address string) []Transaction {
 					}
 				}
 
-				if out.CanBrUnlocked(address) {
+				if out.CanBeUnlocked(address) {
 					unspentTxs = append(unspentTxs, *tx)
 				}
+
 			}
 
 			if !tx.IsCoinBase() {
@@ -185,6 +182,7 @@ func (chain *Blockchain) FindUnspentTransctions(address string) []Transaction {
 					if in.CanUnlock(address) {
 						inTxID := hex.EncodeToString(in.ID)
 						spentTxOs[inTxID] = append(spentTxOs[inTxID], in.Out)
+
 					}
 				}
 			}
@@ -200,12 +198,14 @@ func (chain *Blockchain) FindUnspentTransctions(address string) []Transaction {
 
 func (chain *Blockchain) FindUTXO(address string) []TxOutput {
 	var UTXOs []TxOutput
-	unspentTransactions := chain.FindUnspentTransctions(address)
+	unspentTransactions := chain.FindUnspentTransactions(address)
 
 	for _, tx := range unspentTransactions {
 		for _, out := range tx.Outputs {
-			if out.CanBrUnlocked(address) {
+			if out.CanBeUnlocked(address) {
+
 				UTXOs = append(UTXOs, out)
+
 			}
 		}
 	}
@@ -215,15 +215,14 @@ func (chain *Blockchain) FindUTXO(address string) []TxOutput {
 
 func (chain *Blockchain) FindSpendableOutputs(address string, amount int) (int, map[string][]int) {
 	unspentOuts := make(map[string][]int)
-	unspentTxs := chain.FindUnspentTransctions(address)
+	unspentTxs := chain.FindUnspentTransactions(address)
 	accumulated := 0
-
 Work:
 	for _, tx := range unspentTxs {
 		txID := hex.EncodeToString(tx.ID)
 
 		for outIdx, out := range tx.Outputs {
-			if out.CanBrUnlocked(address) && accumulated < amount {
+			if out.CanBeUnlocked(address) && accumulated < amount {
 				accumulated += out.Value
 				unspentOuts[txID] = append(unspentOuts[txID], outIdx)
 
@@ -231,6 +230,7 @@ Work:
 					break Work
 				}
 			}
+
 		}
 	}
 

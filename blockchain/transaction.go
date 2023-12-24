@@ -32,9 +32,10 @@ func (tx *Transaction) SetId() {
 
 	encode := gob.NewEncoder(&encoded)
 	err := encode.Encode(tx)
-	Handler(err)
+	Handle(err)
 	hash = sha256.Sum256(encoded.Bytes())
 	tx.ID = hash[:]
+
 }
 
 func CoinBaseTx(to, data string) *Transaction {
@@ -51,19 +52,21 @@ func CoinBaseTx(to, data string) *Transaction {
 	return &tx
 }
 
-func NewTransaction(from, to string, amount int, chain *Blockchain) *Transaction {
+func NewTransaction(from string, to string, amount int, chain *Blockchain) *Transaction {
 	var inputs []TxInput
 	var outputs []TxOutput
 
 	acc, validOutputs := chain.FindSpendableOutputs(from, amount)
 
 	if acc < amount {
-		log.Panic("Error: not enough founds")
+
+		log.Panic("Error: not enough funds")
+
 	}
 
 	for txid, outs := range validOutputs {
 		txID, err := hex.DecodeString(txid)
-		Handler(err)
+		Handle(err)
 
 		for _, out := range outs {
 			input := TxInput{txID, out, from}
@@ -81,18 +84,17 @@ func NewTransaction(from, to string, amount int, chain *Blockchain) *Transaction
 	tx.SetId()
 
 	return &tx
+
 }
 
 func (tx *Transaction) IsCoinBase() bool {
-	return len(tx.Inputs) == 1 &&
-		len(tx.Inputs[0].ID) == 0 &&
-		tx.Inputs[0].Out == -1
+	return len(tx.Inputs) == 1 && len(tx.Inputs[0].ID) == 0 && tx.Inputs[0].Out == -1
 }
 
 func (in *TxInput) CanUnlock(data string) bool {
 	return in.Sig == data
 }
 
-func (out *TxOutput) CanBrUnlocked(data string) bool {
+func (out *TxOutput) CanBeUnlocked(data string) bool {
 	return out.PubKey == data
 }
