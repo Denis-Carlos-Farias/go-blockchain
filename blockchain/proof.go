@@ -10,12 +10,12 @@ import (
 	"math/big"
 )
 
-//Pegar o Data do bloco
-//Criar um contador (nonce) na qual iniará em 0
-//Criar um Hash do Data + o contador
-//Verificar o Hash para ver se ele atende o conjunto de requisitos
-//Requisitos:
-//Os primeiros bytes devem conter zeros
+//Take the Data from the Block
+//Create a counter (nonce) which starts at 0
+//Create a Hash of the Data plus the Counter
+//Check the Hash to see if it meets a set of requirements
+//Requirements:
+//The First few bytes must contain 0s
 
 const Difficulty = 18
 
@@ -27,62 +27,63 @@ type ProofOfWork struct {
 func NewProof(b *Block) *ProofOfWork {
 	target := big.NewInt(1)
 	target.Lsh(target, uint(256-Difficulty))
-	proofOfWork := &ProofOfWork{b, target}
-
-	return proofOfWork
+	pow := &ProofOfWork{b, target}
+	return pow
 }
 
-func (proofOfWork *ProofOfWork) InitData(nonce int) []byte {
+func (pow *ProofOfWork) InitData(nonce int) []byte {
 	data := bytes.Join(
 		[][]byte{
-			proofOfWork.Block.PrevHash,
-			proofOfWork.Block.Data,
+			pow.Block.PrevHash,
+			pow.Block.HashTransactions(),
 			ToHex(int64(nonce)),
 			ToHex(int64(Difficulty)),
 		},
 		[]byte{},
 	)
-
 	return data
 }
 
-func (proofOfWork *ProofOfWork) Run() (int, []byte) {
+func (pow *ProofOfWork) Run() (int, []byte) {
 	var intHash big.Int
 	var hash [32]byte
 
 	nonce := 0
 
 	for nonce < math.MaxInt64 {
-		data := proofOfWork.InitData(nonce)
+		data := pow.InitData(nonce)
 		hash = sha256.Sum256(data)
 
 		fmt.Printf("\r%x", hash)
 		intHash.SetBytes(hash[:])
 
-		if intHash.Cmp(proofOfWork.Target) == -1 {
+		if intHash.Cmp(pow.Target) == -1 {
 			break
+		} else {
+			nonce++
 		}
-		nonce++
 	}
 	fmt.Println()
+
 	return nonce, hash[:]
+
 }
 
-func (proofOfWork *ProofOfWork) Validate() bool {
+func (pow *ProofOfWork) Validate() bool {
 	var intHash big.Int
-	data := proofOfWork.InitData(proofOfWork.Block.nonce)
+	data := pow.InitData(pow.Block.Nonce)
 	hash := sha256.Sum256(data)
 	intHash.SetBytes(hash[:])
 
-	return intHash.Cmp(proofOfWork.Target) == -1
+	return intHash.Cmp(pow.Target) == -1
 }
 
-func ToHex(number int64) []byte {
+func ToHex(num int64) []byte {
 	buff := new(bytes.Buffer)
-
-	err := binary.Write(buff, binary.BigEndian, number)
+	err := binary.Write(buff, binary.BigEndian, num)
 	if err != nil {
 		log.Panic(err)
+
 	}
 
 	return buff.Bytes()
